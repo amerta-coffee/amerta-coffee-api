@@ -143,4 +143,7 @@ app.route("/products", productRoute);
 app.route("/cart", cartRoute);
 app.route("/orders", orderRoute);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  port: process.env.WEB_PORT || 3000,
+};

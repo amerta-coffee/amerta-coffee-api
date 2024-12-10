@@ -7,23 +7,23 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate --no-hints",
     "db:seed": "prisma db seed",
-    "dev": "bun run --hot src/index.ts",
-    "start": "bun run db:migrate:deploy && bun run src/index.ts"
+    "dev": "bun run --hot src/app.ts",
+    "start": "bun run db:migrate:deploy && bun run src/app.ts"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
   },
   "dependencies": {
-    "@hono/zod-openapi": "^0.16.3",
-    "@prisma/client": "^5.20.0",
-    "@scalar/hono-api-reference": "^0.5.152",
-    "hono": "^4.6.3",
+    "@hono/zod-openapi": "^0.16.4",
+    "@prisma/client": "^5.22.0",
+    "@scalar/hono-api-reference": "^0.5.163",
+    "hono": "^4.6.13",
     "oslo": "^1.2.1"
   },
   "devDependencies": {
-    "@faker-js/faker": "^9.0.3",
+    "@faker-js/faker": "^9.3.0",
     "@types/bun": "latest",
-    "prisma": "^5.20.0"
+    "prisma": "^5.22.0"
   },
   "author": "Zacky Achmad",
   "license": "MIT"

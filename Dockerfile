@@ -1,24 +1,32 @@
-# Stage 1: Build
-FROM oven/bun:latest AS builder
+# Stage 1: Install dependencies
+FROM oven/bun:latest AS deps
 
 WORKDIR /app
 
-COPY package.json ./
+# Copy only essential files for dependency installation
+COPY package.json bun.lockb ./
 
+# Install dependencies
 RUN bun install --frozen-lockfile
-
-COPY . .
 
 # Stage 2: Runtime
 FROM oven/bun:latest
 
 WORKDIR /app
 
-COPY --from=builder /app /app
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules /app/node_modules
 
-RUN bun install
+# Copy source code and necessary files
+COPY src ./src
+COPY prisma ./prisma
+COPY tsconfig.json ./
+COPY package.json ./
+
+# Generate Prisma client (if Prisma is used)
 RUN bun run prisma generate
 
+# Expose the application's port
 EXPOSE 3000
 
 # Start the application

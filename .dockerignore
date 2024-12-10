@@ -1,21 +1,33 @@
 # Node.js modules
 node_modules
 
-# Cache Bun
-bun.lockb
-
-# Direktori git
+# Git directories and files
 .git
 .gitignore
 
-# Docker
+# Docker files
 docker-compose.yml
-compose.yml
+compose.yaml
 .dockerignore
 
-# Environment
+# Environment files
 .env
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
+
+# Logs
+*.log
+
+# Temp files and OS-specific files
+*.swp
+.DS_Store
+Thumbs.db
+
+# Documentation and assets not needed in runtime
+*.md
+*.png
+*.jpg
+*.jpeg
+*.svg
