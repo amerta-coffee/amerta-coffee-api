@@ -17,6 +17,7 @@ datasource db {
 model User {
   id         String   @id @default(cuid())
   name       String   @db.VarChar(100)
+  username   String   @unique @db.VarChar(16)
   email      String   @unique @db.VarChar(128)
   phone      String?  @db.VarChar(32)
   address    String?  @db.VarChar(255)
@@ -25,10 +26,13 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tokens UserToken[] @relation("UserTokens")
-  Cart   Cart[]
-  Order  Order[]
+  tokens   UserToken[] @relation("UserTokens")
+  products Product[]
+  carts    Cart[]
+  orders   Order[]
 
+  @@index([username])
+  @@index([email])
   @@map("users")
 }
 
@@ -46,79 +50,137 @@ model UserToken {
   @@map("user_tokens")
 }
 
-model Product {
-  id             String   @id @default(cuid())
-  name           String   @unique @db.VarChar(100)
-  description    String?
-  price          Int      @default(0)
-  stock_qty      Int      @default(0)
-  slug           String?  @unique
-  sku            String?  @db.VarChar(100)
-  image_url      String[] @db.Text
-  specifications Json?
-  grinding       Json?
-  isAvailable    Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(100)
+  description String? @db.Text
 
-  CartItem  CartItem[]
-  OrderItem OrderItem[]
+  products Product[] @relation("CategoryProducts")
 
-  @@map("products")
+  @@index([name])
+  @@map("categories")
 }
 
-model Cart {
-  id        String   @id @default(cuid())
-  userId    String
+model Product {
+  id          String   @id @default(cuid())
+  sku         String?  @unique
+  slug        String   @unique
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  price       Decimal? @db.Money
+  stockQty    Int      @default(0)
+  isAvailable Boolean  @default(true)
+
+  ownerId    String?
+  owner      User?     @relation(fields: [ownerId], references: [id])
+  categoryId String?
+  category   Category? @relation("CategoryProducts", fields: [categoryId], references: [id])
+
+  productAssets   ProductAsset[]    @relation("ProductAssets")
+  productDiscount ProductDiscount[] @relation("ProductDiscounts")
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items CartItem[] @relation("CartItems")
-  user  User       @relation(fields: [userId], references: [id])
+  @@index([slug])
+  @@index([name])
+  @@index([ownerId])
+  @@index([categoryId])
+  @@map("products")
+}
 
+model ProductDiscount {
+  id        String   @id @default(cuid())
+  type      String
+  value     Decimal
+  startDate DateTime
+  endDate   DateTime
+
+  productId String
+  product   Product @relation("ProductDiscounts", fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("product_discounts")
+}
+
+model ProductAsset {
+  id   String @id @default(cuid())
+  url  String @db.Text
+  type String @default("IMAGE")
+
+  productId String
+  product   Product @relation("ProductAssets", fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("product_assets")
+}
+
+model Cart {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  cartItems CartItem[] @relation("CartItems")
+
+  @@index([userId])
   @@map("carts")
 }
 
 model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
+  id       String @id @default(cuid())
+  quantity Int    @default(1)
+
   productId String
-  quantity  Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  product   Product @relation(fields: [productId], references: [id])
+  cartId    String
+  cart      Cart    @relation("CartItems", fields: [cartId], references: [id], onDelete: Cascade)
 
-  product Product @relation(fields: [productId], references: [id])
-  cart    Cart    @relation("CartItems", fields: [cartId], references: [id], onDelete: Cascade)
-
-  @@unique([cartId, productId])
   @@map("cart_items")
 }
 
 model Order {
-  id          String   @id @default(cuid())
-  noInvoice   String   @unique @db.VarChar(128)
-  userId      String
-  totalAmount Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String @id @default(cuid())
+  totalPrice Int    @default(0)
+  status     String @default("Pending")
 
-  items OrderItem[] @relation("OrderItems")
-  user  User        @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
+  orderItems   OrderItem[]   @relation("OrderItems")
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([status])
   @@map("orders")
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id       String @id @default(cuid())
+  quantity Int
+  price    Int
 
-  product Product @relation(fields: [productId], references: [id])
-  order   Order   @relation("OrderItems", fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  orderId   String
+  order     Order   @relation("OrderItems", fields: [orderId], references: [id])
 
   @@map("order_items")
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  noInvoice   String   @unique @db.VarChar(128)
+  amount      Int
+  status      String   @default("Pending")
+  paymentDate DateTime @default(now())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+  @@map("transactions")
 }
