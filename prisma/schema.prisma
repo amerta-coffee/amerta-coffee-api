@@ -15,15 +15,14 @@ datasource db {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  name       String   @db.VarChar(100)
-  email      String   @unique @db.VarChar(128)
-  phone      String?  @db.VarChar(32)
-  address    String?  @db.VarChar(255)
-  avatar_url String?  @db.VarChar(255)
-  password   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String    @id @default(cuid())
+  name       String    @db.VarChar(100)
+  email      String    @unique @db.VarChar(128)
+  password   String    @db.VarChar(255)
+  avatar_url String?   @db.VarChar(255)
+  phone      String?   @db.VarChar(32)
+  birthdate  DateTime?
+  gender     String?
 
   addresses UserAddress[]
   roles     UserRole[]
@@ -32,7 +31,9 @@ model User {
   carts     Cart[]
   orders    Order[]
 
-  @@index([email])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("users")
 }
 
@@ -61,11 +62,10 @@ model UserToken {
   token     String
   issuedAt  DateTime @default(now())
   expiresAt DateTime
-  revoked   Boolean  @default(false)
 
   user User @relation("UserTokens", fields: [userId], references: [id])
 
-  @@index([userId, token])
+  @@index([token, expiresAt])
   @@map("user_tokens")
 }
 

@@ -3,10 +3,11 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "email" VARCHAR(128) NOT NULL,
-    "phone" VARCHAR(32),
-    "address" VARCHAR(255),
+    "password" VARCHAR(255) NOT NULL,
     "avatar_url" VARCHAR(255),
-    "password" TEXT NOT NULL,
+    "phone" VARCHAR(32),
+    "birthdate" TIMESTAMP(3),
+    "gender" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -36,7 +37,6 @@ CREATE TABLE "user_tokens" (
     "token" TEXT NOT NULL,
     "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
-    "revoked" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "user_tokens_pkey" PRIMARY KEY ("id")
 );
@@ -183,13 +183,10 @@ CREATE TABLE "transactions" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE INDEX "users_email_idx" ON "users"("email");
-
--- CreateIndex
 CREATE INDEX "user_addresses_userId_idx" ON "user_addresses"("userId");
 
 -- CreateIndex
-CREATE INDEX "user_tokens_userId_token_idx" ON "user_tokens"("userId", "token");
+CREATE INDEX "user_tokens_token_expiresAt_idx" ON "user_tokens"("token", "expiresAt");
 
 -- CreateIndex
 CREATE INDEX "categories_name_idx" ON "categories"("name");

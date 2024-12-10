@@ -1,47 +1,42 @@
 import { z } from "@hono/zod-openapi";
 import { registerSchema, loginSchema } from "@/schemas/authSchema";
+import { generateAvatarUrl } from "@/libs/avatar";
+import * as password from "@/libs/password";
 import * as jwt from "@/libs/jwt";
-import * as crypto from "@/libs/crypto";
 import db from "@/libs/db";
 
 /**
- * Registers a new user.
+ * Registers a new user in the system.
  *
- * @param data - The data for registering a new user.
- * @returns The newly registered user.
- * @throws {Error} If the email is already registered.
+ * @param data - An object containing the user's registration details,
+ *               which includes name, email, password, and confirmPassword.
+ * @throws {Object} If the email is already registered, throws an error with code 409
+ *                  and a message indicating the email or phone number is taken.
+ * @returns A Promise that resolves to an object containing the newly registered user's
+ *          name and email.
  */
 export const register = async (data: z.infer<typeof registerSchema>) => {
+  const hashedPassword = await password.hashValue(data.password);
   const existingUser = await db.user.findUnique({
     where: { email: data.email },
   });
 
   if (existingUser) {
-    throw new Error("Email already registered!");
+    throw {
+      code: 409,
+      error: existingUser.email === data.email ? "EMAIL_TAKEN" : "PHONE_TAKEN",
+      message:
+        existingUser.email === data.email
+          ? "Email already registered!"
+          : "Phone number already registered with another user!",
+    };
   }
-
-  const existingPhoneUsers = await db.user.findMany({
-    where: { phone: data.phone },
-  });
-
-  if (existingPhoneUsers.length > 0) {
-    throw new Error("Phone number already registered with another user!");
-  }
-
-  const hashedPassword = await crypto.hashValue(data.password);
-  const initials = data?.name
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-  const avatar = `https://placehold.co/300x300/FFFFFF/000000/?text=${initials}`;
 
   const user = await db.user.create({
     data: {
       name: data.name,
-      email: data.email,
-      phone: data?.phone,
-      address: data?.address,
-      avatar_url: data?.avatar_url || avatar,
+      email: data.email.toLowerCase(),
+      avatar_url: generateAvatarUrl(data.name),
       password: hashedPassword,
     },
     select: {
@@ -54,19 +49,40 @@ export const register = async (data: z.infer<typeof registerSchema>) => {
 };
 
 /**
- * Logs in an existing user.
+ * Logs in a user with email and password.
  *
- * @param data - The data for logging in an existing user.
- * @returns The access token and refresh token for the user.
- * @throws {Error} If the email or password is incorrect.
+ * @param data - An object containing the user's login details,
+ *               which includes email and password.
+ * @throws {Object} If the user is not found, throws an error with code 404
+ *                  and a message indicating the user is not found.
+ * @throws {Object} If the password is invalid, throws an error with code 401
+ *                  and a message indicating invalid email or password.
+ * @returns A Promise that resolves to an object containing the access token
+ *          and the refresh token.
  */
 export const login = async (data: z.infer<typeof loginSchema>) => {
   const user = await db.user.findUnique({
-    where: { email: data.email },
+    where: { email: data.email.toLowerCase() },
+    select: { id: true, password: true },
   });
+  if (!user) {
+    throw {
+      code: 404,
+      error: "USER_NOT_FOUND",
+      message: "User not found!",
+    };
+  }
 
-  if (!user || !(await crypto.verifyValue(data.password, user.password))) {
-    throw new Error("Email or password is incorrect!");
+  const isPasswordValid = await password.verifyValue(
+    data.password,
+    user.password
+  );
+  if (!isPasswordValid) {
+    throw {
+      code: 401,
+      error: "INVALID_EMAIL_OR_PASSWORD",
+      message: "Invalid email or password!",
+    };
   }
 
   const userId = user.id.toString();
@@ -79,107 +95,78 @@ export const login = async (data: z.infer<typeof loginSchema>) => {
 };
 
 /**
- * Retrieves the user profile associated with the given access token.
- *
- * @param token - The access token.
- * @returns The user profile.
- * @throws {Error} If the access token is invalid or expired.
- */
-export const profile = async (token: string) => {
-  const decodedToken = await jwt.validateToken(token);
-  if (!decodedToken?.subject) {
-    throw new Error("Invalid or expired access token");
-  }
-
-  return await db.user.findUnique({
-    where: { id: decodedToken.subject },
-    select: {
-      name: true,
-      email: true,
-      avatar_url: true,
-      phone: true,
-      address: true,
-      createdAt: true,
-    },
-  });
-};
-
-/**
- * Processes a refresh token, either revoking it or regenerating a new one.
+ * Processes a refresh token to log out a user or to regenerate a new access and refresh token pair.
  *
  * @param refreshToken - The refresh token to process.
- * @param action - The action to take, either "REVOKE" or "REGENERATE".
- *
- * @returns If revoking, true is returned. If regenerating, the new access and
- *   refresh tokens are returned.
- *
- * @throws {Error} If the refresh token is invalid or already revoked.
+ * @param isRegenerate - Whether to regenerate a new access and refresh token pair.
+ *                       Defaults to false, which means the token is for logging out a user.
+ * @throws {Object} If the refresh token is invalid, expired, or already revoked,
+ *                  throws an error with code 401 and a message indicating the reason.
+ * @returns A Promise that resolves to an object containing the new access token and refresh token
+ *          if `isRegenerate` is true, otherwise resolves to true.
  */
 const processToken = async (
   refreshToken: string,
-  action: "REVOKE" | "REGENERATE"
+  isRegenerate: boolean = false
 ) => {
-  const decodedToken = await jwt.validateToken(refreshToken);
-  if (!decodedToken?.subject) {
-    throw new Error("Invalid or expired refresh token");
-  }
+  const result = await db.$transaction(async (prisma) => {
+    const tokenRecord = await prisma.userToken.findFirst({
+      where: {
+        token: refreshToken,
+        expiresAt: { gte: new Date() },
+      },
+    });
 
-  const userId = decodedToken.subject;
-  const tokenRecords = await db.userToken.findMany({
-    where: {
-      userId,
-      revoked: false,
-    },
+    if (!tokenRecord) {
+      throw {
+        code: 401,
+        error: isRegenerate ? "INVALID_REFRESH_TOKEN" : "INVALID_LOGOUT",
+        message: `${
+          isRegenerate ? "Refresh" : "Logout"
+        } token is invalid, expired, or already revoked!`,
+      };
+    }
+
+    await prisma.userToken.delete({
+      where: { id: tokenRecord.id },
+    });
+
+    return tokenRecord;
   });
 
-  const validTokenRecord = await Promise.all(
-    tokenRecords.map(async (tokenRecord) => {
-      const isValidToken = await crypto.verifyValue(
-        refreshToken,
-        tokenRecord.token
-      );
-      return isValidToken ? tokenRecord : null;
-    })
-  ).then((results) => results.find((record) => record !== null));
-
-  if (!validTokenRecord) {
-    throw new Error("Refresh token is invalid or already revoked");
-  }
-
-  await db.userToken.update({
-    where: { id: validTokenRecord.id },
-    data: { revoked: true },
-  });
-
-  if (action === "REGENERATE") {
+  if (isRegenerate) {
     const [newAccessToken, newRefreshToken] = await Promise.all([
-      jwt.createAccessToken(userId.toString()),
-      jwt.createRefreshToken(userId.toString()),
+      jwt.createAccessToken(result.userId),
+      jwt.createRefreshToken(result.userId),
     ]);
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
   }
 
   return true;
 };
 
 /**
- * Regenerates a new access and refresh token using the given refresh token.
+ * Regenerates a new access and refresh token pair using a valid refresh token.
  *
- * @param refreshToken - The refresh token to use to regenerate a new token.
- * @returns An object containing the new access and refresh tokens.
- * @throws {Error} If the refresh token is invalid or already revoked.
+ * @param {string} refreshToken - The refresh token to use for generating new tokens.
+ * @returns {Promise<any>} - A promise that resolves to an object containing the new access and refresh tokens.
+ * @throws {Error} - If the refresh token is invalid, expired, or already revoked.
  */
 export const regenToken = async (refreshToken: string): Promise<any> => {
-  return await processToken(refreshToken, "REGENERATE");
+  return await processToken(refreshToken, true);
 };
 
 /**
- * Revokes a refresh token and makes it invalid for authentication.
+ * Logs out a user by invalidating the refresh token.
  *
- * @param refreshToken - The refresh token to revoke.
- * @returns A boolean indicating whether the token was revoked successfully.
- * @throws {Error} If the refresh token is invalid or already revoked.
+ * @param {string} refreshToken - The refresh token to invalidate.
+ * @throws {Error} - If the refresh token is invalid, expired, or already revoked.
+ * @returns {Promise<boolean>} - A promise that resolves to true if the token was successfully invalidated.
  */
 export const logout = async (refreshToken: string) => {
-  return await processToken(refreshToken, "REVOKE");
+  return await processToken(refreshToken);
 };

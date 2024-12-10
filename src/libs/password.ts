@@ -1,5 +1,6 @@
 import { Bcrypt } from "oslo/password";
 
+const isDevelopment = process.env.WEB_ENV === "development";
 const saltRounds = parseInt(process.env.SALT_ROUNDS || "10");
 const bcrypt = new Bcrypt({ cost: saltRounds });
 
@@ -12,8 +13,14 @@ const bcrypt = new Bcrypt({ cost: saltRounds });
 export const hashValue = async (password: string): Promise<string> => {
   try {
     return await bcrypt.hash(password);
-  } catch (error: Error | any) {
-    throw new Error("Failed to hash password.", { cause: error });
+  } catch (error: any) {
+    throw {
+      code: 500,
+      error: "INTERNAL_SERVER_ERROR",
+      message: isDevelopment
+        ? error.message || "Failed to hash password."
+        : "Please contact the admin.",
+    };
   }
 };
 
@@ -30,7 +37,13 @@ export const verifyValue = async (
 ): Promise<boolean> => {
   try {
     return await bcrypt.verify(hashedValue, value);
-  } catch (error: Error | any) {
-    throw new Error("Failed to verify password.", { cause: error });
+  } catch (error: any) {
+    throw {
+      code: 500,
+      error: "INTERNAL_SERVER_ERROR",
+      message: isDevelopment
+        ? error.message || "Failed to verify password."
+        : "Please contact the admin.",
+    };
   }
 };

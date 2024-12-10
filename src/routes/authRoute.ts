@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import * as authService from "@/services/authService";
 import * as authSchema from "@/schemas/authSchema";
@@ -28,22 +27,32 @@ authRoute.openapi(
         description: "User successfully registered",
       },
       400: {
-        description: "Invalid input or registration failed",
+        description: "Invalid input data",
+      },
+      409: {
+        description: "User already exists",
+      },
+      500: {
+        description: "Internal server error",
       },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const body = await c.req.json();
+  async (c) => {
+    const body = c.req.valid("json");
 
     try {
       const user = await authService.register(body);
-      return c.json({ status: "success", data: user }, 201);
-    } catch (error: Error | any) {
-      return c.json(
-        { status: "failed", error: error.message || "Registration failed!" },
-        400
-      );
+
+      return c.json({ success: true, data: user }, { status: 201 });
+    } catch (error: any) {
+      const errorResponse = {
+        success: false,
+        error: error?.error || "UNKNOWN_ERROR",
+        message: error?.message || "Failed to register user!",
+      };
+
+      return c.json(errorResponse, { status: error?.code || 500 });
     }
   }
 );
@@ -68,62 +77,36 @@ authRoute.openapi(
       200: {
         description: "Login successful",
       },
+      400: {
+        description: "Invalid input data",
+      },
       401: {
         description: "Invalid email or password",
       },
+      404: {
+        description: "User not found",
+      },
+      500: {
+        description: "Internal server error",
+      },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const body = await c.req.json();
+  async (c) => {
+    const body = c.req.valid("json");
 
     try {
       const token = await authService.login(body);
-      return c.json(
-        {
-          status: "success",
-          token,
-        },
-        200
-      );
-    } catch (error: Error | any) {
-      return c.json(
-        { status: "failed", error: error.message || "Login failed!" },
-        401
-      );
-    }
-  }
-);
 
-// Profile Route
-authRoute.openapi(
-  {
-    method: "get",
-    path: "/me",
-    summary: "Get user profile",
-    description: "Get user profile by JWT token.",
-    security: [{ AuthorizationBearer: [] }],
-    responses: {
-      200: {
-        description: "User profile retrieved successfully",
-      },
-      401: {
-        description: "Unauthorized",
-      },
-    },
-    tags: API_TAGS,
-  },
-  async (c: Context) => {
-    const jwt = c.req.header("Authorization")?.replace("Bearer ", "");
-    if (!jwt) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+      return c.json({ success: true, token }, { status: 200 });
+    } catch (error: any) {
+      const errorResponse = {
+        success: false,
+        error: error?.error || "UNKNOWN_ERROR",
+        message: error?.message || "Failed to log in!",
+      };
 
-    try {
-      const user = await authService.profile(jwt);
-      return c.json({ status: "success", data: user }, 200);
-    } catch (error: Error | any) {
-      return c.json({ message: error.message || "Failed to get profile" }, 401);
+      return c.json(errorResponse, { status: error?.code || 500 });
     }
   }
 );
@@ -148,33 +131,34 @@ authRoute.openapi(
       200: {
         description: "Token successfully refreshed",
       },
+      400: {
+        description: "Invalid input data",
+      },
       401: {
         description: "Refresh token is missing or invalid",
+      },
+      500: {
+        description: "Internal server error",
       },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const { refreshToken } = await c.req.json();
-
-    if (!refreshToken) {
-      return c.json({ message: "Refresh token is required!" }, 401);
-    }
+  async (c) => {
+    const { refreshToken } = c.req.valid("json");
 
     try {
       const token = await authService.regenToken(refreshToken);
-      return c.json(
-        {
-          status: "success",
-          token,
-        },
-        200
-      );
-    } catch (error: Error | any) {
-      return c.json(
-        { message: error.message || "Failed to refresh token" },
-        401
-      );
+
+      return c.json({ success: true, token }, { status: 200 });
+    } catch (error: any) {
+      const errorResponse = {
+        success: false,
+        error: error?.error || "UNKNOWN_ERROR",
+        message:
+          error?.message || "Failed to generate token with refresh token!",
+      };
+
+      return c.json(errorResponse, { status: error?.code || 500 });
     }
   }
 );
@@ -208,18 +192,21 @@ authRoute.openapi(
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const { refreshToken } = await c.req.json();
-
-    if (!refreshToken) {
-      return c.json({ message: "Refresh token is required!" }, 401);
-    }
+  async (c) => {
+    const { refreshToken } = c.req.valid("json");
 
     try {
       await authService.logout(refreshToken);
-      return c.json({ message: "Logout successful" }, 200);
-    } catch (error: Error | any) {
-      return c.json({ message: error.message || "Failed to log out!" }, 500);
+
+      return c.json({ success: true, message: "Logout successful" }, 200);
+    } catch (error: any) {
+      const errorResponse = {
+        success: false,
+        error: error?.error || "UNKNOWN_ERROR",
+        message: error?.message || "Failed to log out!",
+      };
+
+      return c.json(errorResponse, { status: error?.code || 500 });
     }
   }
 );

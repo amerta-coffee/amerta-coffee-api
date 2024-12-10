@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@hono/zod-openapi": "^0.16.4",
+    "@node-rs/argon2-darwin-arm64": "^2.0.2",
+    "@node-rs/argon2-wasm32-wasi": "^2.0.2",
+    "@node-rs/bcrypt-darwin-arm64": "^1.10.7",
     "@prisma/client": "^6.0.1",
     "@scalar/hono-api-reference": "^0.5.163",
     "hono": "^4.6.13",
