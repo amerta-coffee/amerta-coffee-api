@@ -23,11 +23,5 @@ COPY prisma ./prisma
 COPY tsconfig.json ./
 COPY package.json ./
 
-# Generate Prisma client (if Prisma is used)
-RUN bun run prisma generate
-
 # Expose the application's port
 EXPOSE 3000
-
-# Start the application
-CMD ["bun", "start"]

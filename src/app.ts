@@ -6,35 +6,37 @@ import authRoute from "@/routes/authRoute";
 import productRoute from "@/routes/productRoute";
 import cartRoute from "@/routes/cartRoute";
 import orderRoute from "@/routes/orderRoute";
+import * as health from "@/libs/health";
 
 const allowedOrigins = process.env.CORS_ALLOWS_ORIGINS?.split(",") || [];
 const app = new OpenAPIHono();
 
 // Middleware
-app.use("*", logger());
-app.use(
-  "*",
-  cors({
-    origin: (origin) => {
-      if (origin) {
-        const validOrigin = allowedOrigins.some((allowedOrigin) => {
-          return (
-            origin === `http://${allowedOrigin}` ||
-            origin === `https://${allowedOrigin}`
-          );
-        });
+app
+  .use(
+    "*",
+    cors({
+      origin: (origin) => {
+        if (origin) {
+          const validOrigin = allowedOrigins.some((allowedOrigin) => {
+            return (
+              origin === `http://${allowedOrigin}` ||
+              origin === `https://${allowedOrigin}`
+            );
+          });
 
-        if (validOrigin) {
-          return origin;
+          if (validOrigin) {
+            return origin;
+          }
         }
-      }
 
-      return null;
-    },
-    credentials: true,
-    maxAge: 3600,
-  })
-);
+        return null;
+      },
+      credentials: true,
+      maxAge: 3600,
+    })
+  )
+  .use("*", logger());
 
 // Web routes
 app.get("/", (c) => {
@@ -135,6 +137,19 @@ app.doc("/spec.json", {
     description:
       "API for Amerta Coffee, a premium Indonesian coffee online store.",
   },
+});
+app.get("/health", async (c) => {
+  const dbStatus = await health.checkDatabaseConnection();
+  const serverTime = new Date().toISOString();
+
+  const { response, statusCode } = health.buildHealthResponse(
+    serverTime,
+    dbStatus
+  );
+
+  return c.json(response, {
+    status: statusCode,
+  });
 });
 
 // API routes

@@ -7,8 +7,9 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate --no-hints",
     "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
     "dev": "bun run --hot src/app.ts",
-    "start": "bun run db:migrate:deploy && bun run src/app.ts"
+    "start": "bun run src/app.ts"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"

@@ -6,7 +6,7 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-arm64-openssl-1.1.x"]
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -17,7 +17,6 @@ datasource db {
 model User {
   id         String   @id @default(cuid())
   name       String   @db.VarChar(100)
-  username   String   @unique @db.VarChar(16)
   email      String   @unique @db.VarChar(128)
   phone      String?  @db.VarChar(32)
   address    String?  @db.VarChar(255)
@@ -26,14 +25,34 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tokens   UserToken[] @relation("UserTokens")
-  products Product[]
-  carts    Cart[]
-  orders   Order[]
+  addresses UserAddress[]
+  roles     UserRole[]
+  tokens    UserToken[]   @relation("UserTokens")
+  products  Product[]
+  carts     Cart[]
+  orders    Order[]
 
-  @@index([username])
   @@index([email])
   @@map("users")
+}
+
+model UserAddress {
+  id         String  @id @default(cuid())
+  street     String  @db.VarChar(255)
+  city       String  @db.VarChar(100)
+  state      String  @db.VarChar(100)
+  postalCode String  @db.VarChar(20)
+  country    String  @db.VarChar(100)
+  isPrimary  Boolean @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("user_addresses")
 }
 
 model UserToken {
@@ -48,6 +67,55 @@ model UserToken {
 
   @@index([userId, token])
   @@map("user_tokens")
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(50)
+  description String? @db.VarChar(255)
+
+  rolePermission RolePermission[]
+  userRole       UserRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(50)
+  description String? @db.VarChar(255)
+
+  rolePermission RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  permissionId String
+  Permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  User   User   @relation(fields: [userId], references: [id])
+
+  roleId String
+  Role   Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+  @@map("user_roles")
 }
 
 model Category {

@@ -142,6 +142,3 @@ dist
 
 # Prisma
 /prisma/dev.db
-
-# Bun
-bun.lockb
