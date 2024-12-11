@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
-import { registerSchema, loginSchema } from "@/schemas/authSchema";
-import { generateAvatarUrl } from "@/libs/avatar";
+import { registerSchema, loginSchema } from "@/schemas/auth";
+import { compareUserAgent } from "@/libs/userAgent";
 import { TimeSpan } from "oslo";
 import * as password from "@/libs/password";
 import * as jwt from "@/libs/jwt";
@@ -41,7 +41,9 @@ export const register = async (data: z.infer<typeof registerSchema>) => {
     data: {
       name: data.name,
       email: data.email.toLowerCase(),
-      avatar_url: generateAvatarUrl(data.name),
+      avatar_url: `https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=${encodeURIComponent(
+        data.name.toLowerCase()
+      )}`,
       password: hashedPassword,
     },
     select: {
@@ -108,73 +110,81 @@ export const processToken = async (
   userAgent?: string,
   isRegenerate: boolean = false
 ) => {
-  try {
-    const result = await db.$transaction(async (prisma) => {
-      const token = await jwt.validateToken(refreshToken);
+  const result = await db.$transaction(async (prisma) => {
+    const token = await jwt.validateToken(refreshToken);
 
-      if (!token || !token.jwtId) {
-        throw {
-          code: 401,
-          error: "INVALID_TOKEN",
-          message:
-            "The provided token is invalid, expired, or already revoked.",
-        };
-      }
+    if (!token || !token.jwtId) {
+      throw {
+        code: 401,
+        error: "INVALID_TOKEN",
+        message: "The provided token is invalid, expired, or already revoked.",
+      };
+    }
 
-      const tokenRecord = await prisma.userToken.findFirst({
-        where: {
-          jwtId: token.jwtId,
-          revoked: false,
-          expiresAt: { gte: new Date() },
-        },
-        select: { id: true, userId: true },
-      });
+    const tokenRecord = await prisma.userToken.findFirst({
+      where: {
+        jwtId: token.jwtId,
+        revoked: false,
+        expiresAt: { gte: new Date() },
+      },
+      select: { id: true, userId: true, userAgent: true },
+    });
 
-      if (!tokenRecord) {
-        throw {
-          code: 401,
-          error: "INVALID_TOKEN",
-          message:
-            "The provided token is invalid, expired, or already revoked.",
-        };
-      }
+    if (!tokenRecord) {
+      throw {
+        code: 401,
+        error: "INVALID_TOKEN",
+        message: "The provided token is invalid, expired, or already revoked.",
+      };
+    }
 
+    if (
+      isRegenerate &&
+      userAgent &&
+      tokenRecord.userAgent &&
+      !compareUserAgent(userAgent, tokenRecord.userAgent)
+    ) {
       await prisma.userToken.update({
         where: { id: tokenRecord.id },
         data: { revoked: true },
       });
 
-      return tokenRecord;
-    });
-
-    if (isRegenerate) {
-      const userId = result.userId.toString();
-      if (!userId) {
-        throw {
-          code: 401,
-          error: "INVALID_USER",
-          message: "The user associated with the provided token is not found.",
-        };
-      }
-
-      const [newAccessToken, newRefreshToken] = await Promise.all([
-        jwt.createToken(userId, accessTokenExpired, {
-          userAgent,
-        }),
-        jwt.createRefreshToken(userId, refreshTokenExpired, {
-          userAgent,
-        }),
-      ]);
-
-      return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+      throw {
+        code: 401,
+        error: "USER_AGENT_MISMATCH",
+        message:
+          "User-agent mismatch. Token cannot be refreshed from this device.",
+      };
     }
 
-    return true;
-  } catch (error: any) {
-    throw {
-      code: error.code || 500,
-      error: error.error || "INTERNAL_SERVER_ERROR",
-      message: error.message || "An unexpected error occurred.",
-    };
+    await prisma.userToken.update({
+      where: { id: tokenRecord.id },
+      data: {
+        revoked: true,
+        userAgent: userAgent || tokenRecord.userAgent,
+      },
+    });
+
+    return tokenRecord;
+  });
+
+  if (isRegenerate) {
+    const userId = result.userId.toString();
+    if (!userId) {
+      throw {
+        code: 401,
+        error: "INVALID_USER",
+        message: "The user associated with the provided token is not found.",
+      };
+    }
+
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      jwt.createToken(userId, accessTokenExpired, { userAgent }),
+      jwt.createRefreshToken(userId, refreshTokenExpired, { userAgent }),
+    ]);
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
+
+  return true;
 };

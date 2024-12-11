@@ -1,6 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import * as authService from "@/services/authService";
-import * as authSchema from "@/schemas/authSchema";
+import * as authService from "@/services/auth";
+import * as authSchema from "@/schemas/auth";
 
 const authRoute = new OpenAPIHono();
 const API_TAGS = ["Auth"];

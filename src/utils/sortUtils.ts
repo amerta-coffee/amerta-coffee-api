@@ -15,18 +15,21 @@ const parseSorts = (sort?: string | null) => {
   try {
     const sortParams = JSON.parse(sort);
 
-    return Object.keys(sortParams).reduce((sortOptions, key) => {
-      const value = sortParams[key];
+    return Object.keys(sortParams).reduce(
+      (sortOptions, key) => {
+        const value = sortParams[key];
 
-      if (
-        typeof value === "string" &&
-        ["asc", "desc"].includes(value.toLowerCase())
-      ) {
-        sortOptions[key] = value.toLowerCase() as SortOrder;
-      }
+        if (
+          typeof value === "string" &&
+          ["asc", "desc"].includes(value.toLowerCase())
+        ) {
+          sortOptions[key] = value.toLowerCase() as SortOrder;
+        }
 
-      return sortOptions;
-    }, {} as Record<string, SortOrder>);
+        return sortOptions;
+      },
+      {} as Record<string, SortOrder>
+    );
   } catch (error: Error | any) {
     throw new Error(
       error.message || "Invalid filter format. Please provide valid JSON."

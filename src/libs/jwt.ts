@@ -2,7 +2,6 @@ import { createJWT, validateJWT } from "oslo/jwt";
 import { TimeSpan } from "oslo";
 import db from "@/libs/db";
 
-const isDevelopment = process.env.WEB_ENV === "development";
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 let encodedSecret: ArrayBuffer | null = null;
 
@@ -79,34 +78,24 @@ export const createRefreshToken = async (
   expiresIn: TimeSpan,
   payload?: any
 ) => {
-  try {
-    const jwtId = crypto.randomUUID();
-    const issuedAt = new Date();
-    const expiresAt = new Date(issuedAt.getTime() + expiresIn.milliseconds());
+  const jwtId = crypto.randomUUID();
+  const issuedAt = new Date();
+  const expiresAt = new Date(issuedAt.getTime() + expiresIn.milliseconds());
 
-    const refreshToken = await createToken(userId, expiresIn, {
+  const refreshToken = await createToken(userId, expiresIn, {
+    jwtId,
+    ...payload,
+  });
+
+  await db.userToken.create({
+    data: {
+      userId: userId,
       jwtId,
-      ...payload,
-    });
+      userAgent: payload?.userAgent,
+      issuedAt,
+      expiresAt,
+    },
+  });
 
-    await db.userToken.create({
-      data: {
-        userId: userId,
-        jwtId,
-        userAgent: payload?.userAgent,
-        issuedAt,
-        expiresAt,
-      },
-    });
-
-    return refreshToken;
-  } catch (error: any) {
-    throw {
-      code: 500,
-      error: "INTERNAL_SERVER_ERROR",
-      message: isDevelopment
-        ? error.message || "Failed to create refresh token."
-        : "Please contact the admin.",
-    };
-  }
+  return refreshToken;
 };
