@@ -59,13 +59,15 @@ model UserAddress {
 model UserToken {
   id        String   @id @default(cuid())
   userId    String
-  token     String
+  jwtId     String   @unique @db.Text
+  userAgent String?  @db.Text
+  revoked   Boolean  @default(false)
   issuedAt  DateTime @default(now())
   expiresAt DateTime
 
   user User @relation("UserTokens", fields: [userId], references: [id])
 
-  @@index([token, expiresAt])
+  @@index([jwtId, revoked, expiresAt])
   @@map("user_tokens")
 }
 

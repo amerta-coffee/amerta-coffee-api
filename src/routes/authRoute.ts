@@ -94,9 +94,10 @@ authRoute.openapi(
   },
   async (c) => {
     const body = c.req.valid("json");
+    const userAgent = c.req.header("User-Agent");
 
     try {
-      const token = await authService.login(body);
+      const token = await authService.login(body, userAgent);
 
       return c.json({ success: true, token }, { status: 200 });
     } catch (error: any) {
@@ -145,9 +146,14 @@ authRoute.openapi(
   },
   async (c) => {
     const { refreshToken } = c.req.valid("json");
+    const userAgent = c.req.header("User-Agent");
 
     try {
-      const token = await authService.regenToken(refreshToken);
+      const token = await authService.processToken(
+        refreshToken,
+        userAgent,
+        true
+      );
 
       return c.json({ success: true, token }, { status: 200 });
     } catch (error: any) {
@@ -194,9 +200,10 @@ authRoute.openapi(
   },
   async (c) => {
     const { refreshToken } = c.req.valid("json");
+    const userAgent = c.req.header("User-Agent");
 
     try {
-      await authService.logout(refreshToken);
+      await authService.processToken(refreshToken, userAgent);
 
       return c.json({ success: true, message: "Logout successful" }, 200);
     } catch (error: any) {

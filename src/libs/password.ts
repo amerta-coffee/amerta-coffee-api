@@ -1,49 +1,34 @@
-import { Bcrypt } from "oslo/password";
+import { Argon2id } from "oslo/password";
 
-const isDevelopment = process.env.WEB_ENV === "development";
-const saltRounds = parseInt(process.env.SALT_ROUNDS || "10");
-const bcrypt = new Bcrypt({ cost: saltRounds });
+const JWT_SECRET = process.env.JWT_SECRET || "secret";
+const argon2id = new Argon2id({
+  memorySize: 8192,
+  iterations: 4,
+  parallelism: 2,
+  tagLength: 32,
+  secret: new TextEncoder().encode(JWT_SECRET),
+});
 
 /**
- * Hashes a given password with a salt.
+ * Hashes the given password using Argon2id algorithm.
  *
  * @param password The password to hash.
  * @returns A Promise that resolves to the hashed password.
  */
 export const hashValue = async (password: string): Promise<string> => {
-  try {
-    return await bcrypt.hash(password);
-  } catch (error: any) {
-    throw {
-      code: 500,
-      error: "INTERNAL_SERVER_ERROR",
-      message: isDevelopment
-        ? error.message || "Failed to hash password."
-        : "Please contact the admin.",
-    };
-  }
+  return await argon2id.hash(password);
 };
 
 /**
- * Verifies a given password against a hashed password.
+ * Verifies a password against a hashed password.
  *
  * @param password The password to verify.
- * @param hashedValue The hashed password to compare against.
- * @returns A Promise that resolves to a boolean indicating whether the password matches the hashed password.
+ * @param hash The hashed password to compare against.
+ * @returns A Promise that resolves to a boolean indicating whether the password is correct.
  */
 export const verifyValue = async (
-  value: string,
-  hashedValue: string
+  password: string,
+  hash: string
 ): Promise<boolean> => {
-  try {
-    return await bcrypt.verify(hashedValue, value);
-  } catch (error: any) {
-    throw {
-      code: 500,
-      error: "INTERNAL_SERVER_ERROR",
-      message: isDevelopment
-        ? error.message || "Failed to verify password."
-        : "Please contact the admin.",
-    };
-  }
+  return await argon2id.verify(hash, password);
 };

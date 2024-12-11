@@ -23,89 +23,30 @@ const getEncodedSecret = async (): Promise<ArrayBuffer> => {
 };
 
 /**
- * Creates a JWT token with the specified parameters.
+ * Creates a JSON Web Token (JWT) with the given user ID and expiration time.
+ * The token will include the user ID as the subject and the current timestamp as the issued at (iat) claim.
+ * The token will be signed with the secret token using the HS256 algorithm.
  *
- * @param userId The user ID to include in the token.
- * @param expiresIn The expiration time as a TimeSpan object.
- * @returns The created JWT token.
- * @throws {Error} If token creation fails.
+ * @param userId The ID of the user.
+ * @param expiresIn The time span the token should be valid for.
+ * @param options Optional additional options for the token.
+ * @returns The created JWT.
  */
-const createToken = async (
+export const createToken = async (
   userId: string,
-  expiresIn: TimeSpan
+  expiresIn: TimeSpan,
+  options: any
 ): Promise<string> => {
   const secret = await getEncodedSecret();
-  const options = {
+
+  const opt = {
     subject: userId,
-    expiresIn,
     includeIssuedTimestamp: true,
+    expiresIn: expiresIn,
+    ...options,
   };
 
-  return await createJWT("HS256", secret, {}, options);
-};
-
-/**
- * Creates an access JWT token with a short expiration time.
- *
- * @param userId The user ID to include in the token.
- * @param expiresInMinutes The number of minutes until the token expires.
- * @returns The created JWT token, or null if an error occurred.
- */
-export const createAccessToken = async (
-  userId: string,
-  expiresInMinutes = 15
-) => {
-  try {
-    return await createToken(userId, new TimeSpan(expiresInMinutes, "m"));
-  } catch (error: any) {
-    throw {
-      code: 500,
-      error: "INTERNAL_SERVER_ERROR",
-      message: isDevelopment
-        ? error.message || "Failed to create access token."
-        : "Please contact the admin.",
-    };
-  }
-};
-
-/**
- * Creates a refresh JWT token with a longer expiration time and saves it to the database.
- *
- * @param userId The user ID to create a refresh token for.
- * @param expiresInDays The number of days until the refresh token expires.
- * @returns The created refresh token.
- */
-export const createRefreshToken = async (
-  userId: string,
-  expiresInDays: number = 30
-) => {
-  try {
-    const tokenExpiry = new TimeSpan(expiresInDays, "d");
-    const refreshToken = await createToken(userId, tokenExpiry);
-    const issuedAt = new Date();
-    const expiresAt = new Date(
-      issuedAt.getTime() + expiresInDays * 24 * 60 * 60 * 1000
-    );
-
-    await db.userToken.create({
-      data: {
-        userId,
-        token: refreshToken,
-        issuedAt,
-        expiresAt,
-      },
-    });
-
-    return refreshToken;
-  } catch (error: Error | any) {
-    throw {
-      code: 500,
-      error: "INTERNAL_SERVER_ERROR",
-      message: isDevelopment
-        ? error.message || "Failed to create refresh token."
-        : "Please contact the admin.",
-    };
-  }
+  return await createJWT("HS256", secret, {}, opt);
 };
 
 /**
@@ -115,16 +56,56 @@ export const createRefreshToken = async (
  * @returns The result of the validation.
  */
 export const validateToken = async (token: string) => {
-  try {
-    const secret = await getEncodedSecret();
+  const secret = await getEncodedSecret();
 
-    return await validateJWT("HS256", secret, token);
+  return await validateJWT("HS256", secret, token);
+};
+
+/**
+ * Creates a new refresh token for a given user ID with the given expiration time.
+ *
+ * The generated token will include the user ID as the subject and the current timestamp as the issued at (iat) claim.
+ * The token will be signed with the secret token using the HS256 algorithm.
+ *
+ * The function will also create a new record in the userToken table with the given user ID, a new JWT ID, the user agent (if provided) and the issued at and expires at timestamps.
+ *
+ * @param userId The ID of the user.
+ * @param expiresIn The time span the token should be valid for.
+ * @param options Optional additional options for the token.
+ * @returns The created refresh token.
+ */
+export const createRefreshToken = async (
+  userId: string,
+  expiresIn: TimeSpan,
+  payload?: any
+) => {
+  try {
+    const jwtId = crypto.randomUUID();
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt.getTime() + expiresIn.milliseconds());
+
+    const refreshToken = await createToken(userId, expiresIn, {
+      jwtId,
+      ...payload,
+    });
+
+    await db.userToken.create({
+      data: {
+        userId: userId,
+        jwtId,
+        userAgent: payload?.userAgent,
+        issuedAt,
+        expiresAt,
+      },
+    });
+
+    return refreshToken;
   } catch (error: any) {
     throw {
-      code: 401,
-      error: "UNAUTHORIZED",
+      code: 500,
+      error: "INTERNAL_SERVER_ERROR",
       message: isDevelopment
-        ? error.message || "Failed to validate token."
+        ? error.message || "Failed to create refresh token."
         : "Please contact the admin.",
     };
   }

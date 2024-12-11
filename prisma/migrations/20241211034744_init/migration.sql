@@ -34,7 +34,9 @@ CREATE TABLE "user_addresses" (
 CREATE TABLE "user_tokens" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
+    "jwtId" TEXT NOT NULL,
+    "userAgent" TEXT,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
     "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
 
@@ -186,7 +188,10 @@ CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 CREATE INDEX "user_addresses_userId_idx" ON "user_addresses"("userId");
 
 -- CreateIndex
-CREATE INDEX "user_tokens_token_expiresAt_idx" ON "user_tokens"("token", "expiresAt");
+CREATE UNIQUE INDEX "user_tokens_jwtId_key" ON "user_tokens"("jwtId");
+
+-- CreateIndex
+CREATE INDEX "user_tokens_jwtId_revoked_expiresAt_idx" ON "user_tokens"("jwtId", "revoked", "expiresAt");
 
 -- CreateIndex
 CREATE INDEX "categories_name_idx" ON "categories"("name");
