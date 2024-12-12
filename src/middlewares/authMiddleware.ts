@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { validateToken } from "@/libs/jwt";
+import { respondError } from "@/utils/response";
 import db from "@/libs/db";
 
 /**
@@ -17,32 +18,43 @@ import db from "@/libs/db";
  * a generic error message.
  */
 const authMiddleware = createMiddleware(async (c, next) => {
-  const authHeader = c.req.header("Authorization");
-  const token = authHeader?.split(" ")[1] || null;
+  const token = c.req.header("Authorization")?.split(" ")[1];
+
   if (!token) {
-    return c.json({ message: "Authorization token is required!" }, 401);
+    return respondError(
+      c,
+      "AUTHORIZATION_TOKEN_REQUIRED",
+      "Authorization token is required!",
+      401
+    );
   }
 
   try {
-    const decodedToken = await validateToken(token);
-    if (!decodedToken || !decodedToken.subject) {
-      throw new Error("Invalid or expired access token!");
+    const { subject: userId } = await validateToken(token);
+
+    if (!userId || typeof userId !== "string") {
+      throw new Error("Invalid user ID in token");
     }
 
-    const userId = decodedToken?.subject;
     const user = await db.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
+
     if (!user) {
-      return c.json({ message: "User not found!" }, 404);
+      throw new Error("User not found");
     }
 
-    c.set("user", user);
+    c.set("userId", userId);
 
     await next();
-  } catch (error: Error | any) {
-    return c.json({ message: error.message || "Unauthorized!" }, 401);
+  } catch (error: any) {
+    return respondError(
+      c,
+      error.code || "AUTHENTICATION_FAILED",
+      error.message || "Authentication failed!",
+      401
+    );
   }
 });
 

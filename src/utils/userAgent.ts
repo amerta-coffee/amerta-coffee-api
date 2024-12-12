@@ -9,9 +9,9 @@ const parser = new UAParser();
  * @param {string} userAgent - The user agent string to be parsed.
  * @returns {UAParser.IResult} An object containing parsed details of the user agent.
  */
-export const parseUserAgent = (userAgent: string): UAParser.IResult => {
+export function parseUserAgent(userAgent: string): UAParser.IResult {
   return parser.setUA(userAgent).getResult();
-};
+}
 
 /**
  * Compares two user agent strings to determine if they belong to the same browser and
@@ -22,10 +22,10 @@ export const parseUserAgent = (userAgent: string): UAParser.IResult => {
  * @param {string} userAgentDB - The user agent string stored in the database.
  * @returns {boolean} True if the user agent strings match, false otherwise.
  */
-export const compareUserAgent = (
+export function compareUserAgent(
   userAgentRequest: string,
   userAgentDB: string
-): boolean => {
+): boolean {
   const parserRequest = new UAParser(userAgentRequest);
   const parserDB = new UAParser(userAgentDB);
 
@@ -42,4 +42,4 @@ export const compareUserAgent = (
     ) <= 1;
 
   return isBrowserSimilar && isOSSimilar;
-};
+}

@@ -1,4 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { respondError } from "@/utils/response";
 import * as authService from "@/services/auth";
 import * as authSchema from "@/schemas/auth";
 
@@ -44,15 +45,14 @@ authRoute.openapi(
     try {
       const user = await authService.register(body);
 
-      return c.json({ success: true, data: user }, { status: 201 });
+      return c.json({ success: true, data: user }, 201);
     } catch (error: any) {
-      const errorResponse = {
-        success: false,
-        error: error?.error || "UNKNOWN_ERROR",
-        message: error?.message || "Failed to register user!",
-      };
-
-      return c.json(errorResponse, { status: error?.code || 500 });
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to register user!",
+        error?.code
+      );
     }
   }
 );
@@ -99,15 +99,14 @@ authRoute.openapi(
     try {
       const token = await authService.login(body, userAgent);
 
-      return c.json({ success: true, token }, { status: 200 });
+      return c.json({ success: true, token }, 200);
     } catch (error: any) {
-      const errorResponse = {
-        success: false,
-        error: error?.error || "UNKNOWN_ERROR",
-        message: error?.message || "Failed to log in!",
-      };
-
-      return c.json(errorResponse, { status: error?.code || 500 });
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to log in!",
+        error?.code
+      );
     }
   }
 );
@@ -155,16 +154,14 @@ authRoute.openapi(
         true
       );
 
-      return c.json({ success: true, token }, { status: 200 });
+      return c.json({ success: true, token }, 200);
     } catch (error: any) {
-      const errorResponse = {
-        success: false,
-        error: error?.error || "UNKNOWN_ERROR",
-        message:
-          error?.message || "Failed to generate token with refresh token!",
-      };
-
-      return c.json(errorResponse, { status: error?.code || 500 });
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to generate token with refresh token!",
+        error?.code
+      );
     }
   }
 );
@@ -207,13 +204,12 @@ authRoute.openapi(
 
       return c.json({ success: true, message: "Logout successful" }, 200);
     } catch (error: any) {
-      const errorResponse = {
-        success: false,
-        error: error?.error || "UNKNOWN_ERROR",
-        message: error?.message || "Failed to log out!",
-      };
-
-      return c.json(errorResponse, { status: error?.code || 500 });
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to log out!",
+        error?.code
+      );
     }
   }
 );

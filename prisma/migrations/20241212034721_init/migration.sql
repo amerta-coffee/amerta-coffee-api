@@ -4,7 +4,7 @@ CREATE TABLE "users" (
     "name" VARCHAR(100) NOT NULL,
     "email" VARCHAR(128) NOT NULL,
     "password" VARCHAR(255) NOT NULL,
-    "avatar_url" VARCHAR(255),
+    "avatarUrl" VARCHAR(255),
     "phone" VARCHAR(32),
     "birthdate" TIMESTAMP(3),
     "gender" TEXT,
@@ -93,14 +93,16 @@ CREATE TABLE "categories" (
 -- CreateTable
 CREATE TABLE "products" (
     "id" TEXT NOT NULL,
-    "sku" TEXT,
     "slug" TEXT NOT NULL,
+    "sku" VARCHAR(128),
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "price" MONEY,
+    "thumbnailUrl" TEXT,
+    "price" DECIMAL(65,30) NOT NULL,
+    "priceDiscount" DECIMAL(65,30),
     "stockQty" INTEGER NOT NULL DEFAULT 0,
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
-    "ownerId" TEXT,
+    "userId" TEXT,
     "categoryId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -125,6 +127,7 @@ CREATE TABLE "product_assets" (
     "id" TEXT NOT NULL,
     "url" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'IMAGE',
+    "order" INTEGER NOT NULL DEFAULT 0,
     "productId" TEXT NOT NULL,
 
     CONSTRAINT "product_assets_pkey" PRIMARY KEY ("id")
@@ -151,7 +154,7 @@ CREATE TABLE "cart_items" (
 -- CreateTable
 CREATE TABLE "orders" (
     "id" TEXT NOT NULL,
-    "totalPrice" INTEGER NOT NULL DEFAULT 0,
+    "totalPrice" DECIMAL(65,30) NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'Pending',
     "userId" TEXT NOT NULL,
 
@@ -161,8 +164,8 @@ CREATE TABLE "orders" (
 -- CreateTable
 CREATE TABLE "order_items" (
     "id" TEXT NOT NULL,
-    "quantity" INTEGER NOT NULL,
-    "price" INTEGER NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "price" DECIMAL(65,30) NOT NULL,
     "productId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
 
@@ -194,13 +197,16 @@ CREATE UNIQUE INDEX "user_tokens_jwtId_key" ON "user_tokens"("jwtId");
 CREATE INDEX "user_tokens_jwtId_revoked_expiresAt_idx" ON "user_tokens"("jwtId", "revoked", "expiresAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "categories_name_key" ON "categories"("name");
+
+-- CreateIndex
 CREATE INDEX "categories_name_idx" ON "categories"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "products_sku_key" ON "products"("sku");
+CREATE UNIQUE INDEX "products_slug_key" ON "products"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "products_slug_key" ON "products"("slug");
+CREATE UNIQUE INDEX "products_sku_key" ON "products"("sku");
 
 -- CreateIndex
 CREATE INDEX "products_slug_idx" ON "products"("slug");
@@ -209,7 +215,7 @@ CREATE INDEX "products_slug_idx" ON "products"("slug");
 CREATE INDEX "products_name_idx" ON "products"("name");
 
 -- CreateIndex
-CREATE INDEX "products_ownerId_idx" ON "products"("ownerId");
+CREATE INDEX "products_userId_idx" ON "products"("userId");
 
 -- CreateIndex
 CREATE INDEX "products_categoryId_idx" ON "products"("categoryId");
@@ -257,7 +263,7 @@ ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("u
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "products" ADD CONSTRAINT "products_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "products" ADD CONSTRAINT "products_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "products" ADD CONSTRAINT "products_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;

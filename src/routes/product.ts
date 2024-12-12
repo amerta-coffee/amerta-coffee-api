@@ -1,7 +1,9 @@
 import type { Context } from "hono";
 import { OpenAPIHono, z } from "@hono/zod-openapi";
-import * as productService from "@/services/productService";
-import * as productSchema from "@/schemas/productSchema";
+import { querySchema } from "@/schemas/query";
+import { respondError } from "@/utils/response";
+import * as productService from "@/services/product";
+import * as productSchema from "@/schemas/product";
 import authMiddleware from "@/middlewares/authMiddleware";
 
 const productRoute = new OpenAPIHono();
@@ -14,7 +16,7 @@ productRoute.openAPIRegistry.registerComponent(
   {
     type: "http",
     scheme: "bearer",
-    in: "header",
+    bearerFormat: "JWT",
     description: "Bearer token",
   }
 );
@@ -26,46 +28,34 @@ productRoute.openapi(
     path: "/",
     summary: "Get Products",
     request: {
-      query: productSchema.productQuerySchema,
+      query: querySchema,
     },
     responses: {
       200: {
         description: "Get Products",
       },
       400: {
-        description: "Get Products Failed",
+        description: "Invalid Input Data",
+      },
+      500: {
+        description: "Internal Server Error",
       },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const {
-      page = "0",
-      limit = "0",
-      filters = "",
-      q = "",
-      sorts = "",
-      s = "",
-    } = c.req.query();
-
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
+  async (c) => {
+    const { filter, sort, limit, page } = c.req.valid("query");
 
     try {
-      const products = await productService.getAll(
-        pageNumber,
-        limitNumber,
-        filters || q,
-        sorts || s
-      );
-      return c.json({ status: "success", data: products }, 200);
-    } catch (error: Error | any) {
-      return c.json(
-        {
-          status: "failed",
-          error: error.message || "Get Products Failed!",
-        },
-        400
+      const products = await productService.getAll(filter, sort, limit, page);
+
+      return c.json({ success: true, data: products }, 200);
+    } catch (error: any) {
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to get products!",
+        error?.code
       );
     }
   }
@@ -78,31 +68,34 @@ productRoute.openapi(
     path: "/{slug}",
     summary: "Get Product By Slug",
     request: {
-      params: productSchema.productSlugSchema,
+      params: z.object({ slug: productSchema.productSlugSchema }),
     },
     responses: {
       200: {
         description: "Get Product By Slug",
       },
-      400: {
-        description: "Get Product By Slug Failed",
+      404: {
+        description: "Product Not Found",
+      },
+      500: {
+        description: "Internal Server Error",
       },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const { slug } = c.req.param();
+  async (c) => {
+    const { slug } = c.req.valid("param");
 
     try {
       const product = await productService.getBySlug(slug);
-      return c.json({ status: "success", data: product }, 200);
-    } catch (error: Error | any) {
-      return c.json(
-        {
-          status: "failed",
-          error: error.message || "Get Product By Product ID Failed!",
-        },
-        400
+
+      return c.json({ success: true, data: product }, 200);
+    } catch (error: any) {
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to get product!",
+        error?.code
       );
     }
   }
@@ -130,28 +123,34 @@ productRoute.openapi(
         description: "Create Product",
       },
       400: {
-        description: "Create Product Failed",
+        description: "Invalid Input Data",
       },
       401: {
         description: "Unauthorized",
       },
+      409: {
+        description: "Product Already Exists",
+      },
+      500: {
+        description: "Internal Server Error",
+      },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const body: z.infer<typeof productSchema.productSchema> =
-      await c.req.json();
+  async (c) => {
+    const body = c.req.valid("json");
+    const userId = (c as Context).get("userId");
 
     try {
-      const product = await productService.create(body);
-      return c.json({ status: "success", data: product }, 201);
-    } catch (error: Error | any) {
-      return c.json(
-        {
-          status: "failed",
-          error: error.message || "Create Product Failed!",
-        },
-        400
+      const product = await productService.create(body, userId);
+
+      return c.json({ success: true, data: product }, 201);
+    } catch (error: any) {
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to create product!",
+        error?.code
       );
     }
   }
@@ -166,11 +165,11 @@ productRoute.openapi(
     middleware: authMiddleware,
     security: [{ AuthorizationBearer: [] }],
     request: {
-      params: productSchema.productIdSchema,
+      params: z.object({ productId: productSchema.productIdSchema }),
       body: {
         content: {
           "application/json": {
-            schema: productSchema.productSchema.partial(),
+            schema: productSchema.productSchema,
           },
         },
       },
@@ -185,18 +184,24 @@ productRoute.openapi(
       401: {
         description: "Unauthorized",
       },
+      404: {
+        description: "Product Not Found",
+      },
+      500: {
+        description: "Internal Server Error",
+      },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const productId = c.req.param("productId");
-    const body: z.infer<typeof productSchema.productSchema> =
-      await c.req.json();
+  async (c) => {
+    const { productId: id } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const userId = (c as Context).get("userId");
 
     try {
-      const product = await productService.update(productId, body);
+      const product = await productService.update(id, body, userId);
       return c.json({ status: "success", data: product }, 200);
-    } catch (error: Error | any) {
+    } catch (error: any) {
       return c.json(
         {
           status: "failed",
@@ -217,7 +222,7 @@ productRoute.openapi(
     middleware: authMiddleware,
     security: [{ AuthorizationBearer: [] }],
     request: {
-      params: productSchema.productIdSchema,
+      params: z.object({ productId: productSchema.productIdSchema }),
     },
     responses: {
       200: {
@@ -229,22 +234,29 @@ productRoute.openapi(
       401: {
         description: "Unauthorized",
       },
+      404: {
+        description: "Product Not Found",
+      },
+      500: {
+        description: "Internal Server Error",
+      },
     },
     tags: API_TAGS,
   },
-  async (c: Context) => {
-    const productId = c.req.param("productId");
+  async (c) => {
+    const { productId: id } = c.req.valid("param");
+    const userId = (c as Context).get("userId");
 
     try {
-      const product = await productService.deleteById(productId);
-      return c.json({ status: "success", data: product }, 200);
-    } catch (error: Error | any) {
-      return c.json(
-        {
-          status: "failed",
-          error: error.message || "Delete Product Failed!",
-        },
-        400
+      const product = await productService.deleteById(id, userId);
+
+      return c.json({ success: true, data: product }, 200);
+    } catch (error: any) {
+      return respondError(
+        c,
+        error?.error,
+        error?.message || "Failed to delete product!",
+        error?.code
       );
     }
   }

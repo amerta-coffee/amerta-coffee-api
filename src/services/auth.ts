@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { registerSchema, loginSchema } from "@/schemas/auth";
-import { compareUserAgent } from "@/libs/userAgent";
+import { compareUserAgent } from "@/utils/userAgent";
 import { TimeSpan } from "oslo";
 import * as password from "@/libs/password";
 import * as jwt from "@/libs/jwt";
@@ -41,7 +41,7 @@ export const register = async (data: z.infer<typeof registerSchema>) => {
     data: {
       name: data.name,
       email: data.email.toLowerCase(),
-      avatar_url: `https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=${encodeURIComponent(
+      avatarUrl: `https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=${encodeURIComponent(
         data.name.toLowerCase()
       )}`,
       password: hashedPassword,
