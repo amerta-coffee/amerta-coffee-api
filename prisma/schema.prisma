@@ -60,6 +60,7 @@ model UserAddress {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Order     Order[]
 
   @@index([userId])
   @@map("user_addresses")
@@ -149,7 +150,7 @@ model Product {
   thumbnailUrl  String?
   price         Decimal
   priceDiscount Decimal?
-  stockQty      Int?          @default(0)
+  stockQty      Int           @default(0)
   status        ProductStatus @default(DRAFT)
 
   userId     String?
@@ -201,7 +202,7 @@ model ProductDiscount {
 model Cart {
   id String @id @default(cuid())
 
-  userId String
+  userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
   cartItems CartItem[] @relation("CartItems")
@@ -219,6 +220,7 @@ model CartItem {
   cartId    String
   cart      Cart    @relation("CartItems", fields: [cartId], references: [id], onDelete: Cascade)
 
+  @@unique([productId, cartId])
   @@map("cart_items")
 }
 
@@ -229,6 +231,9 @@ model Order {
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  shippingAddressId String
+  shippingAddress   UserAddress @relation(fields: [shippingAddressId], references: [id])
 
   orderItems   OrderItem[]   @relation("OrderItems")
   transactions Transaction[]
@@ -252,11 +257,11 @@ model OrderItem {
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  noInvoice   String   @unique @db.VarChar(128)
+  id          String    @id @default(cuid())
+  noInvoice   String    @unique @db.VarChar(128)
   amount      Int
-  status      String   @default("Pending")
-  paymentDate DateTime @default(now())
+  status      String    @default("Pending")
+  paymentDate DateTime?
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)

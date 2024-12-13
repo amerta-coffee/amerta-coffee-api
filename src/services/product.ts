@@ -1,7 +1,7 @@
 import db from "@/libs/db";
 import parseFilters from "@/utils/filter";
 import parseSorts from "@/utils/sort";
-import handleProductData from "@/utils/product";
+import handleProductData from "@/helpers/product";
 
 /**
  * Retrieves a list of products that match the given filters and sorts.

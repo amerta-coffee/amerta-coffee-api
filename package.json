@@ -1,7 +1,7 @@
 {
   "name": "amerta-coffee-api",
   "description": "API for Amerta Coffee, a premium Indonesian coffee online store",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scripts": {
     "format": "bunx prettier --write 'src/**/*.{ts,tsx}'",
     "db:migrate:dev": "prisma migrate dev --name init",
@@ -22,7 +22,9 @@
     "@node-rs/bcrypt-darwin-arm64": "^1.10.7",
     "@prisma/client": "^6.0.1",
     "@scalar/hono-api-reference": "^0.5.163",
+    "date-fns": "^4.1.0",
     "hono": "^4.6.13",
+    "nanoid": "^5.0.9",
     "oslo": "^1.2.1",
     "ua-parser-js": "^2.0.0"
   },

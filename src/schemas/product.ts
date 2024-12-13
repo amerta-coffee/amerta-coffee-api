@@ -8,6 +8,7 @@ export const productIdSchema = z
       required: true,
       in: "path",
     },
+    description: "Product ID.",
   });
 
 export const productSlugSchema = z
@@ -106,7 +107,7 @@ export const productSchema = z.object({
   price: z.coerce.number().min(1).openapi({
     description: "Product price.",
   }),
-  stockQty: z.number().min(0).nullish().optional().openapi({
+  stockQty: z.number().min(1).openapi({
     description: "Product stock quantity. Can be null in drafts.",
   }),
   status: z

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import db from "@/libs/db";
-import slugify from "./slugify";
+import slugify from "@/utils/slugify";
 
 enum DiscountType {
   PERCENTAGE = "percentage",

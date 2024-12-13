@@ -1,10 +1,10 @@
 import type { Context } from "hono";
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import { querySchema } from "@/schemas/query";
-import { respondError } from "@/utils/response";
+import { respondError, responseSuccess } from "@/utils/response";
 import * as productService from "@/services/product";
 import * as productSchema from "@/schemas/product";
-import authMiddleware from "@/middlewares/authMiddleware";
+import authMiddleware from "@/middlewares/auth";
 
 const productRoute = new OpenAPIHono();
 const API_TAGS = ["Products"];
@@ -49,7 +49,7 @@ productRoute.openapi(
     try {
       const products = await productService.getAll(filter, sort, limit, page);
 
-      return c.json({ success: true, data: products }, 200);
+      return responseSuccess(c, "Success to get products!", products, 200);
     } catch (error: any) {
       return respondError(
         c,
@@ -89,7 +89,7 @@ productRoute.openapi(
     try {
       const product = await productService.getBySlug(slug);
 
-      return c.json({ success: true, data: product }, 200);
+      return responseSuccess(c, "Success to get product!", product, 200);
     } catch (error: any) {
       return respondError(
         c,
@@ -144,7 +144,7 @@ productRoute.openapi(
     try {
       const product = await productService.create(body, userId);
 
-      return c.json({ success: true, data: product }, 201);
+      return responseSuccess(c, "Success to create product!", product, 201);
     } catch (error: any) {
       return respondError(
         c,
@@ -200,7 +200,8 @@ productRoute.openapi(
 
     try {
       const product = await productService.update(id, body, userId);
-      return c.json({ status: "success", data: product }, 200);
+
+      return responseSuccess(c, "Success to update product!", product, 200);
     } catch (error: any) {
       return c.json(
         {
@@ -250,7 +251,7 @@ productRoute.openapi(
     try {
       const product = await productService.deleteById(id, userId);
 
-      return c.json({ success: true, data: product }, 200);
+      return responseSuccess(c, "Success to delete product!", product, 200);
     } catch (error: any) {
       return respondError(
         c,

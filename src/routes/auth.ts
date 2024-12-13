@@ -1,5 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { respondError } from "@/utils/response";
+import { respondError, responseSuccess } from "@/utils/response";
 import * as authService from "@/services/auth";
 import * as authSchema from "@/schemas/auth";
 
@@ -45,7 +45,7 @@ authRoute.openapi(
     try {
       const user = await authService.register(body);
 
-      return c.json({ success: true, data: user }, 201);
+      return responseSuccess(c, "Success to register user!", user, 201);
     } catch (error: any) {
       return respondError(
         c,
@@ -99,7 +99,7 @@ authRoute.openapi(
     try {
       const token = await authService.login(body, userAgent);
 
-      return c.json({ success: true, token }, 200);
+      return responseSuccess(c, "Success to log in!", token, 200);
     } catch (error: any) {
       return respondError(
         c,
@@ -154,7 +154,7 @@ authRoute.openapi(
         true
       );
 
-      return c.json({ success: true, token }, 200);
+      return responseSuccess(c, "Success to refresh token!", token, 200);
     } catch (error: any) {
       return respondError(
         c,
@@ -202,7 +202,7 @@ authRoute.openapi(
     try {
       await authService.processToken(refreshToken, userAgent);
 
-      return c.json({ success: true, message: "Logout successful" }, 200);
+      return responseSuccess(c, "Success to log out!", null, 200);
     } catch (error: any) {
       return respondError(
         c,
